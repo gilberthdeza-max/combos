@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   description: string;
   image_url: string;
+  quantity?: number; // Optional quantity when product is inside a combo
 }
 
 export interface Combo {
@@ -67,11 +68,10 @@ export const MOCK_COMBOS: Combo[] = [
     price: 25.00,
     image_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
     products: [
-      MOCK_PRODUCTS[0], // Aceite
-      MOCK_PRODUCTS[1], // Arroz
-      MOCK_PRODUCTS[1], // Arroz (x2)
-      MOCK_PRODUCTS[2], // Café
-      MOCK_PRODUCTS[3]  // Pasta
+      { ...MOCK_PRODUCTS[0], quantity: 1 }, // Aceite x1
+      { ...MOCK_PRODUCTS[1], quantity: 3 }, // Arroz x3
+      { ...MOCK_PRODUCTS[2], quantity: 1 }, // Café x1
+      { ...MOCK_PRODUCTS[3], quantity: 2 }  // Pasta x2
     ]
   },
   {
@@ -81,10 +81,9 @@ export const MOCK_COMBOS: Combo[] = [
     price: 15.50,
     image_url: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
     products: [
-      MOCK_PRODUCTS[4], // Jabón
-      MOCK_PRODUCTS[4], // Jabón (x2)
-      MOCK_PRODUCTS[5], // Detergente
-      MOCK_PRODUCTS[6]  // Crema dental
+      { ...MOCK_PRODUCTS[4], quantity: 4 }, // Jabón x4
+      { ...MOCK_PRODUCTS[5], quantity: 1 }, // Detergente x1
+      { ...MOCK_PRODUCTS[6], quantity: 2 }  // Crema dental x2
     ]
   },
   {
@@ -94,12 +93,12 @@ export const MOCK_COMBOS: Combo[] = [
     price: 38.00,
     image_url: 'https://images.unsplash.com/photo-1607344645866-009c320c5ab8?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3',
     products: [
-      MOCK_PRODUCTS[0], // Aceite
-      MOCK_PRODUCTS[1], // Arroz
-      MOCK_PRODUCTS[2], // Café
-      MOCK_PRODUCTS[3], // Pasta
-      MOCK_PRODUCTS[4], // Jabón
-      MOCK_PRODUCTS[6]  // Crema dental
+      { ...MOCK_PRODUCTS[0], quantity: 2 }, // Aceite x2
+      { ...MOCK_PRODUCTS[1], quantity: 4 }, // Arroz x4
+      { ...MOCK_PRODUCTS[2], quantity: 2 }, // Café x2
+      { ...MOCK_PRODUCTS[3], quantity: 3 }, // Pasta x3
+      { ...MOCK_PRODUCTS[4], quantity: 3 }, // Jabón x3
+      { ...MOCK_PRODUCTS[6], quantity: 2 }  // Crema dental x2
     ]
   }
 ];

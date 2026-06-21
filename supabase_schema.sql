@@ -24,6 +24,7 @@ create table public.combos (
 create table public.combo_products (
   combo_id uuid references public.combos(id) on delete cascade,
   product_id uuid references public.products(id) on delete cascade,
+  quantity integer not null default 1,
   primary key (combo_id, product_id)
 );
 

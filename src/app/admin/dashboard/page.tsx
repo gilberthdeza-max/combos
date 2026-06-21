@@ -48,7 +48,7 @@ export default function AdminDashboard() {
   const [comboDesc, setComboDesc] = useState('');
   const [comboPrice, setComboPrice] = useState('');
   const [comboImage, setComboImage] = useState('');
-  const [comboProdIds, setComboProdIds] = useState<string[]>([]);
+  const [comboProducts, setComboProducts] = useState<Record<string, number>>({});
   const [uploadingComboImg, setUploadingComboImg] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
     setComboDesc('');
     setComboPrice('');
     setComboImage('');
-    setComboProdIds([]);
+    setComboProducts({});
     setIsComboModalOpen(true);
   };
 
@@ -178,7 +178,9 @@ export default function AdminDashboard() {
     setComboDesc(combo.description || '');
     setComboPrice(combo.price.toString());
     setComboImage(combo.image_url || '');
-    setComboProdIds(combo.products?.map((p) => p.id) || []);
+    const qtyMap: Record<string, number> = {};
+    combo.products?.forEach((p) => { qtyMap[p.id] = p.quantity || 1; });
+    setComboProducts(qtyMap);
     setIsComboModalOpen(true);
   };
 
@@ -198,11 +200,18 @@ export default function AdminDashboard() {
   };
 
   const toggleProductInCombo = (productId: string) => {
-    if (comboProdIds.includes(productId)) {
-      setComboProdIds(comboProdIds.filter((id) => id !== productId));
+    if (comboProducts[productId] !== undefined) {
+      const next = { ...comboProducts };
+      delete next[productId];
+      setComboProducts(next);
     } else {
-      setComboProdIds([...comboProdIds, productId]);
+      setComboProducts({ ...comboProducts, [productId]: 1 });
     }
+  };
+
+  const setProductQty = (productId: string, qty: number) => {
+    if (qty < 1) return;
+    setComboProducts({ ...comboProducts, [productId]: qty });
   };
 
   const saveCombo = async (e: React.FormEvent) => {
@@ -213,9 +222,10 @@ export default function AdminDashboard() {
       return;
     }
 
+    const productsPayload = Object.entries(comboProducts).map(([id, quantity]) => ({ id, quantity }));
+
     try {
       if (editingCombo) {
-        // Update
         const updated = await dataService.updateCombo(
           editingCombo.id,
           {
@@ -224,11 +234,10 @@ export default function AdminDashboard() {
             price: priceNum,
             image_url: comboImage,
           },
-          comboProdIds
+          productsPayload
         );
         setCombos(combos.map((c) => (c.id === editingCombo.id ? updated : c)));
       } else {
-        // Create
         const added = await dataService.addCombo(
           {
             name: comboName,
@@ -236,7 +245,7 @@ export default function AdminDashboard() {
             price: priceNum,
             image_url: comboImage,
           },
-          comboProdIds
+          productsPayload
         );
         setCombos([added, ...combos]);
       }
@@ -777,36 +786,69 @@ export default function AdminDashboard() {
                     Crea productos primero en la pestaña de Productos para poder agregarlos aquí.
                   </p>
                 ) : (
-                  <div className="border border-gray-250 dark:border-gray-800 rounded-2xl max-h-44 overflow-y-auto p-2 bg-gray-50/20 space-y-1.5">
+                  <div className="border border-gray-200 dark:border-gray-800 rounded-2xl max-h-52 overflow-y-auto p-2 bg-gray-50/20 space-y-1.5">
                     {products.map((prod) => {
-                      const isSelected = comboProdIds.includes(prod.id);
+                      const isSelected = comboProducts[prod.id] !== undefined;
+                      const qty = comboProducts[prod.id] || 1;
                       return (
                         <div
                           key={prod.id}
-                          onClick={() => toggleProductInCombo(prod.id)}
                           className={`
-                            flex items-center justify-between p-2 rounded-xl border cursor-pointer transition-all text-xs font-semibold
+                            flex items-center gap-2 p-2 rounded-xl border transition-all text-xs font-semibold
                             ${
                               isSelected
                                 ? 'bg-indigo-50/60 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900 text-indigo-700 dark:text-indigo-400'
-                                : 'border-gray-150 dark:border-gray-850 hover:bg-gray-50/50 text-gray-700 dark:text-slate-300'
+                                : 'border-gray-150 dark:border-gray-850 text-gray-700 dark:text-slate-300'
                             }
                           `}
                         >
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-white dark:bg-gray-900 border flex-shrink-0">
+                          {/* Checkbox toggle */}
+                          <button
+                            type="button"
+                            onClick={() => toggleProductInCombo(prod.id)}
+                            className="flex-shrink-0"
+                          >
+                            {isSelected ? (
+                              <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+                            )}
+                          </button>
+
+                          {/* Product image + name */}
+                          <div
+                            className="flex items-center gap-2 flex-1 cursor-pointer min-w-0"
+                            onClick={() => toggleProductInCombo(prod.id)}
+                          >
+                            <div className="w-7 h-7 rounded-lg overflow-hidden bg-white dark:bg-gray-900 border flex-shrink-0">
                               {prod.image_url && <img src={prod.image_url} alt={prod.name} className="w-full h-full object-cover" />}
                             </div>
-                            <span className="truncate max-w-[200px]">{prod.name}</span>
+                            <span className="truncate">{prod.name}</span>
                           </div>
-                          
-                          <div className="flex items-center">
-                            {isSelected ? (
-                              <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 fill-white dark:fill-transparent" />
-                            ) : (
-                              <div className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-700" />
-                            )}
-                          </div>
+
+                          {/* Quantity stepper (only when selected) */}
+                          {isSelected && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setProductQty(prod.id, qty - 1)}
+                                disabled={qty <= 1}
+                                className="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-base flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900 disabled:opacity-40 transition-colors"
+                              >
+                                −
+                              </button>
+                              <span className="w-5 text-center font-bold text-sm text-indigo-700 dark:text-indigo-300">
+                                {qty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setProductQty(prod.id, qty + 1)}
+                                className="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold text-base flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors"
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

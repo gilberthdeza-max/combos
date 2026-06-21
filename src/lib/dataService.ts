@@ -178,7 +178,7 @@ export const dataService = {
 
     const { data: relations, error: relError } = await supabase
       .from('combo_products')
-      .select('combo_id, products(*)');
+      .select('combo_id, quantity, products(*)');
 
     if (relError) {
       console.error('Error fetching combo relations:', relError);
@@ -188,7 +188,13 @@ export const dataService = {
     return (combos || []).map(combo => {
       const relatedProds = (relations as any[])
         .filter(r => r.combo_id === combo.id)
-        .map(r => r.products)
+        .map(r => {
+          if (!r.products) return null;
+          return {
+            ...r.products,
+            quantity: r.quantity || 1
+          };
+        })
         .filter(Boolean) as unknown as Product[];
       return {
         ...combo,
@@ -197,10 +203,18 @@ export const dataService = {
     });
   },
 
-  async addCombo(combo: Omit<Combo, 'id'>, productIds: string[]): Promise<Combo> {
+  async addCombo(combo: Omit<Combo, 'id'>, products: { id: string; quantity: number }[]): Promise<Combo> {
     if (!isSupabaseConfigured()) {
       getStorageData();
-      const selectedProducts = localProducts.filter(p => productIds.includes(p.id));
+      const selectedProducts = products.map(p => {
+        const prod = localProducts.find(lp => lp.id === p.id);
+        if (!prod) return null;
+        return {
+          ...prod,
+          quantity: p.quantity
+        };
+      }).filter(Boolean) as Product[];
+      
       const newCombo: Combo = {
         ...combo,
         id: `c_${Date.now()}`,
@@ -225,10 +239,11 @@ export const dataService = {
     if (comboError) throw comboError;
 
     // 2. Insert relations
-    if (productIds.length > 0) {
-      const relations = productIds.map(productId => ({
+    if (products.length > 0) {
+      const relations = products.map(p => ({
         combo_id: newCombo.id,
-        product_id: productId
+        product_id: p.id,
+        quantity: p.quantity
       }));
       const { error: relError } = await supabase
         .from('combo_products')
@@ -239,9 +254,12 @@ export const dataService = {
 
     // 3. Return combo with products
     const selectedProducts = await Promise.all(
-      productIds.map(async id => {
-        const { data } = await supabase.from('products').select('*').eq('id', id).single();
-        return data;
+      products.map(async p => {
+        const { data } = await supabase.from('products').select('*').eq('id', p.id).single();
+        if (data) {
+          return { ...data, quantity: p.quantity };
+        }
+        return null;
       })
     );
 
@@ -251,12 +269,19 @@ export const dataService = {
     };
   },
 
-  async updateCombo(id: string, updates: Partial<Combo>, productIds?: string[]): Promise<Combo> {
+  async updateCombo(id: string, updates: Partial<Combo>, products?: { id: string; quantity: number }[]): Promise<Combo> {
     if (!isSupabaseConfigured()) {
       getStorageData();
       
-      const comboProducts = productIds 
-        ? localProducts.filter(p => productIds.includes(p.id))
+      const comboProducts = products 
+        ? products.map(p => {
+            const prod = localProducts.find(lp => lp.id === p.id);
+            if (!prod) return null;
+            return {
+              ...prod,
+              quantity: p.quantity
+            };
+          }).filter(Boolean) as Product[]
         : undefined;
 
       const updated = localCombos.map(c => {
@@ -292,7 +317,7 @@ export const dataService = {
     if (comboError) throw comboError;
 
     // 2. Update products relation if provided
-    if (productIds !== undefined) {
+    if (products !== undefined) {
       // Delete old relations
       const { error: delError } = await supabase
         .from('combo_products')
@@ -302,10 +327,11 @@ export const dataService = {
       if (delError) throw delError;
 
       // Insert new relations
-      if (productIds.length > 0) {
-        const relations = productIds.map(pid => ({
+      if (products.length > 0) {
+        const relations = products.map(p => ({
           combo_id: id,
-          product_id: pid
+          product_id: p.id,
+          quantity: p.quantity
         }));
         const { error: insError } = await supabase
           .from('combo_products')
@@ -318,10 +344,16 @@ export const dataService = {
     // 3. Fetch products
     const { data: rels } = await supabase
       .from('combo_products')
-      .select('products(*)')
+      .select('quantity, products(*)')
       .eq('combo_id', id);
 
-    const prods = (rels || []).map(r => r.products).filter(Boolean) as unknown as Product[];
+    const prods = (rels || []).map(r => {
+      if (!r.products) return null;
+      return {
+        ...(r.products as any),
+        quantity: r.quantity || 1
+      };
+    }).filter(Boolean) as unknown as Product[];
 
     return {
       ...updatedCombo,
